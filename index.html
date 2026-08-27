@@ -432,15 +432,19 @@ function emptyData() {
   };
 }
 
-// Index used to be a plain string; now it's { name, subtags: [] } so each
-// index (e.g. "건강") can have its own set of sub-categories (예방/검진, 치료...).
+// Index used to be a plain string; now it's { name, subtags: [], fields: [] }.
+// subtags are for categorizing (예방/검진, 치료...); fields define a custom
+// archive-record form for this index (약국/병원, 장소, 증상명, 결과...) that
+// gets filled in per-schedule via the schedule archive page.
 function normalizeIndices(indices) {
   return (indices || []).map(idx => typeof idx === "string" ? {
     name: idx,
-    subtags: []
+    subtags: [],
+    fields: []
   } : {
     name: idx.name,
-    subtags: idx.subtags || []
+    subtags: idx.subtags || [],
+    fields: idx.fields || []
   });
 }
 function normalizeData(parsed) {
@@ -498,21 +502,21 @@ const weekdayOf = dateStr => WEEKDAYS_KR[parseDateStr(dateStr).getDay()];
 function moodBgClass(mood) {
   switch (mood) {
     case 1:
-      return "bg-rose-100";
+      return "bg-rose-50";
     case 2:
-      return "bg-rose-200";
+      return "bg-rose-100";
     case 3:
-      return "bg-rose-300";
+      return "bg-rose-200";
     case 4:
-      return "bg-rose-400";
+      return "bg-rose-300";
     case 5:
-      return "bg-rose-500";
+      return "bg-rose-400";
     default:
       return "bg-stone-50";
   }
 }
 function moodTextClass(mood) {
-  return mood >= 4 ? "text-white" : "text-stone-600";
+  return mood >= 5 ? "text-white" : "text-stone-600";
 }
 
 /* ---------------- Small UI atoms ---------------- */
@@ -671,9 +675,13 @@ function SubtagRow({
         submit();
       }
     },
-    placeholder: "+ \uC0C8 \uC138\uBD80\uD0DC\uADF8",
+    placeholder: "\uC0C8 \uC138\uBD80\uD0DC\uADF8",
     className: "w-24 px-2 py-0.5 rounded-full border border-dashed border-stone-300 text-[11px] focus:outline-none focus:ring-1 focus:ring-amber-200 bg-white"
-  }));
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: submit,
+    className: "text-[11px] px-2 py-0.5 rounded-full bg-amber-500 text-white hover:bg-amber-600"
+  }, "+ \uCD94\uAC00"));
 }
 function SubtagPicker({
   indexObjs,
@@ -707,7 +715,9 @@ function ScheduleComposer({
   indexObjs,
   peopleList,
   onAdd,
-  addSubtag
+  addSubtag,
+  editing,
+  onCancelEdit
 }) {
   const canAdd = draftItem.title.trim().length > 0;
   const indexNames = indexObjs.map(i => i.name);
@@ -741,7 +751,7 @@ function ScheduleComposer({
       ...draftItem,
       title: e.target.value
     }),
-    placeholder: "\uC77C\uC815 \uC81C\uBAA9 *",
+    placeholder: "\uC81C\uBAA9*",
     className: "w-full font-medium text-sm px-2.5 py-1.5 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-rose-200 mb-2"
   }), /*#__PURE__*/React.createElement("textarea", {
     value: draftItem.memo,
@@ -793,15 +803,22 @@ function ScheduleComposer({
       ...draftItem,
       people: draftItem.people.filter(x => x !== t)
     })
-  })), /*#__PURE__*/React.createElement("button", {
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "mt-2.5 flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: onAdd,
     disabled: !canAdd,
-    className: "mt-2.5 text-xs px-3 py-1.5 rounded-lg bg-stone-700 text-white hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed"
-  }, "+ \uC77C\uC815 \uCD94\uAC00"));
+    className: "text-xs px-3 py-1.5 rounded-lg bg-stone-700 text-white hover:bg-stone-800 disabled:opacity-40 disabled:cursor-not-allowed"
+  }, editing ? "✓ 수정 완료" : "+ 일정 추가"), editing && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: onCancelEdit,
+    className: "text-xs px-3 py-1.5 rounded-lg bg-stone-100 text-stone-500 hover:bg-stone-200"
+  }, "\uCDE8\uC18C")));
 }
 function ScheduleRow({
   item,
+  onEdit,
   onRemove
 }) {
   const tags = item.tags || [];
@@ -827,13 +844,19 @@ function ScheduleRow({
   }, st.index, "\xB7", st.tag)), people.map(p => /*#__PURE__*/React.createElement("span", {
     key: `p-${p}`,
     className: "bg-sky-50 text-sky-600 text-[11px] px-1.5 py-0.5 rounded-full"
-  }, "@", p)))), /*#__PURE__*/React.createElement(IconBtn, {
-    title: "\uC77C\uC815 \uC0AD\uC81C",
-    onClick: onRemove,
-    className: "shrink-0"
+  }, "@", p)))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-1 shrink-0"
+  }, /*#__PURE__*/React.createElement(IconBtn, {
+    title: "\uC77C\uC815 \uC218\uC815",
+    onClick: onEdit
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-sm"
-  }, "\uD83D\uDDD1")));
+  }, "\u270E")), /*#__PURE__*/React.createElement(IconBtn, {
+    title: "\uC77C\uC815 \uC0AD\uC81C",
+    onClick: onRemove
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-sm"
+  }, "\uD83D\uDDD1"))));
 }
 
 /* ---------------- Good/Bad/Thanks list ---------------- */
@@ -905,10 +928,12 @@ function TodayTab({
   const savedEntry = data.entries[date] || emptyEntry();
   const [draft, setDraft] = useState(savedEntry);
   const [scheduleDraft, setScheduleDraft] = useState(emptyScheduleDraft());
+  const [editingId, setEditingId] = useState(null);
   const [flash, setFlash] = useState(false);
   useEffect(() => {
     setDraft(data.entries[date] || emptyEntry());
     setScheduleDraft(emptyScheduleDraft());
+    setEditingId(null);
     setFlash(false);
   }, [date]);
   const patch = partial => setDraft(d => ({
@@ -919,21 +944,40 @@ function TodayTab({
     if (!scheduleDraft.title.trim()) return;
     scheduleDraft.tags.forEach(addIndex);
     scheduleDraft.people.forEach(addPerson);
+    const updatedItem = {
+      id: editingId || uid(),
+      title: scheduleDraft.title.trim(),
+      memo: scheduleDraft.memo.trim(),
+      tags: scheduleDraft.tags,
+      people: scheduleDraft.people,
+      subtags: scheduleDraft.subtags
+    };
     patch({
-      schedules: [...draft.schedules, {
-        id: uid(),
-        title: scheduleDraft.title.trim(),
-        memo: scheduleDraft.memo.trim(),
-        tags: scheduleDraft.tags,
-        people: scheduleDraft.people,
-        subtags: scheduleDraft.subtags
-      }]
+      schedules: editingId ? draft.schedules.map(s => s.id === editingId ? updatedItem : s) : [...draft.schedules, updatedItem]
     });
     setScheduleDraft(emptyScheduleDraft());
+    setEditingId(null);
   };
-  const removeSchedule = id => patch({
-    schedules: draft.schedules.filter(s => s.id !== id)
-  });
+  const editSchedule = item => {
+    setScheduleDraft({
+      title: item.title,
+      memo: item.memo || "",
+      tags: item.tags || [],
+      people: item.people || [],
+      subtags: item.subtags || []
+    });
+    setEditingId(item.id);
+  };
+  const cancelEditSchedule = () => {
+    setScheduleDraft(emptyScheduleDraft());
+    setEditingId(null);
+  };
+  const removeSchedule = id => {
+    patch({
+      schedules: draft.schedules.filter(s => s.id !== id)
+    });
+    if (editingId === id) cancelEditSchedule();
+  };
   const addListItem = (key, text) => patch({
     [key]: [...draft[key], {
       id: uid(),
@@ -973,18 +1017,21 @@ function TodayTab({
     size: "text-lg"
   })), /*#__PURE__*/React.createElement(Card, {
     className: "p-5"
-  }, /*#__PURE__*/React.createElement(SectionTitle, null, "\uC624\uB298\uC758 \uC77C\uC815"), /*#__PURE__*/React.createElement(ScheduleComposer, {
+  }, /*#__PURE__*/React.createElement(SectionTitle, null, "\uC624\uB298\uAE30\uB85D"), /*#__PURE__*/React.createElement(ScheduleComposer, {
     draftItem: scheduleDraft,
     setDraftItem: setScheduleDraft,
     indexObjs: data.indices,
     peopleList: data.people,
     onAdd: addSchedule,
-    addSubtag: addSubtag
+    addSubtag: addSubtag,
+    editing: !!editingId,
+    onCancelEdit: cancelEditSchedule
   }), /*#__PURE__*/React.createElement("div", {
     className: "space-y-2 mt-3"
   }, draft.schedules.map(item => /*#__PURE__*/React.createElement(ScheduleRow, {
     key: item.id,
     item: item,
+    onEdit: () => editSchedule(item),
     onRemove: () => removeSchedule(item.id)
   })), draft.schedules.length === 0 && /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-stone-300 italic"
@@ -1039,11 +1086,58 @@ function TodayTab({
 function IndexArchiveTab({
   data,
   goToDate,
-  addSubtag,
   renameIndex,
   deleteIndex,
   renameSubtag,
-  deleteSubtag
+  deleteSubtag,
+  openArchive
+}) {
+  const [mode, setMode] = useState("tag");
+  const modes = [{
+    key: "tag",
+    label: "태그별"
+  }, {
+    key: "person",
+    label: "대상별"
+  }, {
+    key: "mood",
+    label: "기분별"
+  }];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "max-w-5xl mx-auto space-y-5 fade-in"
+  }, /*#__PURE__*/React.createElement(Card, {
+    className: "p-2 w-fit"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex gap-1 bg-stone-100 rounded-full p-1"
+  }, modes.map(m => /*#__PURE__*/React.createElement("button", {
+    key: m.key,
+    onClick: () => setMode(m.key),
+    className: `text-xs sm:text-sm px-3 sm:px-4 py-1.5 rounded-full transition ${mode === m.key ? "bg-white shadow-sm text-stone-800 font-medium" : "text-stone-400 hover:text-stone-600"}`
+  }, m.label)))), mode === "tag" && /*#__PURE__*/React.createElement(TagGroupView, {
+    data: data,
+    goToDate: goToDate,
+    renameIndex: renameIndex,
+    deleteIndex: deleteIndex,
+    renameSubtag: renameSubtag,
+    deleteSubtag: deleteSubtag,
+    openArchive: openArchive
+  }), mode === "person" && /*#__PURE__*/React.createElement(PersonGroupView, {
+    data: data,
+    goToDate: goToDate,
+    openArchive: openArchive
+  }), mode === "mood" && /*#__PURE__*/React.createElement(MoodGroupView, {
+    data: data,
+    goToDate: goToDate
+  }));
+}
+function TagGroupView({
+  data,
+  goToDate,
+  renameIndex,
+  deleteIndex,
+  renameSubtag,
+  deleteSubtag,
+  openArchive
 }) {
   const [selected, setSelected] = useState(null);
   const [selectedSubtag, setSelectedSubtag] = useState(null);
@@ -1096,9 +1190,7 @@ function IndexArchiveTab({
   const handleDeleteSubtag = (indexName, tag) => {
     if (deleteSubtag(indexName, tag) && selectedSubtag === tag) setSelectedSubtag(null);
   };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "max-w-5xl mx-auto space-y-5 fade-in"
-  }, /*#__PURE__*/React.createElement(Card, {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Card, {
     className: "p-5"
   }, /*#__PURE__*/React.createElement(SectionTitle, {
     sub: "\uC77C\uC815\uC5D0 \uB4F1\uB85D\uB41C \uD0DC\uADF8\uB4E4\uC744 \uBAA8\uC544\uBD05\uB2C8\uB2E4"
@@ -1130,7 +1222,7 @@ function IndexArchiveTab({
   }, "\uD83D\uDDD1")))))), selectedIndexObj && /*#__PURE__*/React.createElement(Card, {
     className: "p-5 fade-in"
   }, /*#__PURE__*/React.createElement(SectionTitle, {
-    sub: "\uC774 \uC778\uB371\uC2A4\uB9CC\uC758 \uC138\uBD80 \uD0DC\uADF8\uB97C \uB9CC\uB4E4\uC5B4 \uB354 \uC798\uAC8C \uAD6C\uBD84\uD574\uBCF4\uC138\uC694 (\uC608: \uC608\uBC29/\uAC80\uC9C4, \uCE58\uB8CC)"
+    sub: "\uC138\uBD80 \uD0DC\uADF8\uB97C \uC120\uD0DD\uD574 \uC544\uB798 \uD0C0\uC784\uB77C\uC778\uC744 \uC881\uD600\uBCF4\uC138\uC694 (\uC0C8 \uC138\uBD80 \uD0DC\uADF8\uB294 \uC124\uC815 \u203A \uC778\uB371\uC2A4 \uAD00\uB9AC\uC5D0\uC11C \uB9CC\uB4E4 \uC218 \uC788\uC2B5\uB2C8\uB2E4)"
   }, "#", selectedIndexObj.name, " \uC138\uBD80 \uD0DC\uADF8"), /*#__PURE__*/React.createElement("div", {
     className: "flex flex-wrap items-center gap-2 mb-1"
   }, /*#__PURE__*/React.createElement("button", {
@@ -1157,9 +1249,7 @@ function IndexArchiveTab({
       handleDeleteSubtag(selectedIndexObj.name, tag);
     },
     className: "opacity-70 hover:opacity-100"
-  }, "\uD83D\uDDD1"))))), /*#__PURE__*/React.createElement(AddSubtagInline, {
-    onAdd: t => addSubtag(selectedIndexObj.name, t)
-  })), selectedIndexObj && /*#__PURE__*/React.createElement(Card, {
+  }, "\uD83D\uDDD1")))))), selectedIndexObj && /*#__PURE__*/React.createElement(Card, {
     className: "p-5 fade-in"
   }, /*#__PURE__*/React.createElement(SectionTitle, {
     sub: `"#${selected}${selectedSubtag ? " · " + selectedSubtag : ""}" 가 포함된 일정 (최신순)`
@@ -1188,7 +1278,17 @@ function IndexArchiveTab({
       className: "text-xs text-stone-400 whitespace-nowrap px-3 py-2 border-b border-stone-100 align-top"
     }, row.date, " (", weekdayOf(row.date), ")"), /*#__PURE__*/React.createElement("td", {
       className: "text-sm text-stone-700 px-3 py-2 border-b border-stone-100 align-top"
-    }, row.title || "(제목 없음)", row.memo && /*#__PURE__*/React.createElement("p", {
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: e => {
+        e.stopPropagation();
+        openArchive(row.date, row.id);
+      },
+      className: "text-left hover:text-rose-600 hover:underline underline-offset-2 inline-flex items-center gap-1"
+    }, row.title || "(제목 없음)", hasArchiveContent(row) && /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px]",
+      title: "\uC544\uCE74\uC774\uBE0C \uAE30\uB85D \uC788\uC74C"
+    }, "\uD83D\uDCC1")), row.memo && /*#__PURE__*/React.createElement("p", {
       className: "text-xs text-stone-400 mt-0.5 line-clamp-2"
     }, row.memo)), /*#__PURE__*/React.createElement("td", {
       className: "px-3 py-2 border-b border-stone-100 align-top"
@@ -1205,8 +1305,163 @@ function IndexArchiveTab({
     }, "-"))));
   }))))));
 }
+function PersonGroupView({
+  data,
+  goToDate,
+  openArchive
+}) {
+  const [selected, setSelected] = useState(null);
+  const counts = useMemo(() => {
+    const c = {};
+    data.people.forEach(p => c[p] = 0);
+    Object.values(data.entries).forEach(entry => {
+      entry.schedules.forEach(s => {
+        (s.people || []).forEach(p => {
+          c[p] = (c[p] || 0) + 1;
+        });
+      });
+    });
+    return c;
+  }, [data]);
+  const timeline = useMemo(() => {
+    if (!selected) return [];
+    const rows = [];
+    Object.entries(data.entries).forEach(([date, entry]) => {
+      entry.schedules.forEach(s => {
+        if ((s.people || []).includes(selected)) rows.push({
+          date,
+          ...s
+        });
+      });
+    });
+    return rows.sort((a, b) => a.date < b.date ? 1 : -1);
+  }, [data, selected]);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Card, {
+    className: "p-5"
+  }, /*#__PURE__*/React.createElement(SectionTitle, {
+    sub: "\uC77C\uC815\uC5D0 \uB4F1\uB85D\uB41C \uB2F4\uB2F9\uC790\uB4E4\uC744 \uBAA8\uC544\uBD05\uB2C8\uB2E4"
+  }, "\uB300\uC0C1 \uBAA9\uB85D"), data.people.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-300 italic"
+  }, "\uC544\uC9C1 \uB4F1\uB85D\uB41C \uB300\uC0C1\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uC77C\uC815\uC5D0 \uB2F4\uB2F9\uC790 \uD0DC\uADF8\uB97C \uCD94\uAC00\uD574\uBCF4\uC138\uC694.") : /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-2"
+  }, data.people.map(p => /*#__PURE__*/React.createElement("div", {
+    key: p,
+    onClick: () => setSelected(p),
+    className: `flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm cursor-pointer transition
+                  ${selected === p ? "bg-stone-700 text-white border-stone-700" : "bg-sky-50 text-sky-600 border-sky-100 hover:bg-sky-100"}`
+  }, /*#__PURE__*/React.createElement("span", null, "@", p), /*#__PURE__*/React.createElement("span", {
+    className: `text-[10px] px-1.5 py-0.5 rounded-full ${selected === p ? "bg-white/20" : "bg-white/70"}`
+  }, counts[p] || 0))))), selected && /*#__PURE__*/React.createElement(Card, {
+    className: "p-5 fade-in"
+  }, /*#__PURE__*/React.createElement(SectionTitle, {
+    sub: `"@${selected}" 가 포함된 일정 (최신순)`
+  }, "\uD0C0\uC784\uB77C\uC778"), timeline.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-300 italic"
+  }, "\uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.") : /*#__PURE__*/React.createElement("div", {
+    className: "overflow-x-auto border border-stone-200 rounded-xl"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full border-collapse"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    className: "bg-stone-50"
+  }, /*#__PURE__*/React.createElement("th", {
+    className: "text-left text-xs font-semibold text-stone-500 px-3 py-2 border-b border-stone-200 whitespace-nowrap"
+  }, "\uB0A0\uC9DC"), /*#__PURE__*/React.createElement("th", {
+    className: "text-left text-xs font-semibold text-stone-500 px-3 py-2 border-b border-stone-200"
+  }, "\uC77C\uC815"), /*#__PURE__*/React.createElement("th", {
+    className: "text-right text-xs font-semibold text-stone-500 px-3 py-2 border-b border-stone-200"
+  }, "\uC778\uB371\uC2A4 \xB7 \uC138\uBD80\uD0DC\uADF8"))), /*#__PURE__*/React.createElement("tbody", null, timeline.map(row => {
+    const tags = row.tags || [];
+    const subtags = row.subtags || [];
+    return /*#__PURE__*/React.createElement("tr", {
+      key: row.date + row.id,
+      onClick: () => goToDate(row.date),
+      className: "hover:bg-rose-50/60 cursor-pointer transition"
+    }, /*#__PURE__*/React.createElement("td", {
+      className: "text-xs text-stone-400 whitespace-nowrap px-3 py-2 border-b border-stone-100 align-top"
+    }, row.date, " (", weekdayOf(row.date), ")"), /*#__PURE__*/React.createElement("td", {
+      className: "text-sm text-stone-700 px-3 py-2 border-b border-stone-100 align-top"
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: e => {
+        e.stopPropagation();
+        openArchive(row.date, row.id);
+      },
+      className: "text-left hover:text-rose-600 hover:underline underline-offset-2 inline-flex items-center gap-1"
+    }, row.title || "(제목 없음)", hasArchiveContent(row) && /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px]",
+      title: "\uC544\uCE74\uC774\uBE0C \uAE30\uB85D \uC788\uC74C"
+    }, "\uD83D\uDCC1")), row.memo && /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-stone-400 mt-0.5 line-clamp-2"
+    }, row.memo)), /*#__PURE__*/React.createElement("td", {
+      className: "px-3 py-2 border-b border-stone-100 align-top"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap justify-end gap-1"
+    }, tags.map(t => /*#__PURE__*/React.createElement("span", {
+      key: `t-${t}`,
+      className: "bg-rose-50 text-rose-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+    }, "#", t)), subtags.map((st, i) => /*#__PURE__*/React.createElement("span", {
+      key: `s-${i}`,
+      className: "bg-amber-50 text-amber-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+    }, st.index, "\xB7", st.tag)), tags.length === 0 && subtags.length === 0 && /*#__PURE__*/React.createElement("span", {
+      className: "text-stone-300 text-xs"
+    }, "-"))));
+  }))))));
+}
+function MoodGroupView({
+  data,
+  goToDate
+}) {
+  const groups = useMemo(() => {
+    const g = {
+      5: [],
+      4: [],
+      3: [],
+      2: [],
+      1: []
+    };
+    Object.entries(data.entries).forEach(([date, entry]) => {
+      if (entry.mood > 0) g[entry.mood].push({
+        date,
+        entry
+      });
+    });
+    Object.values(g).forEach(arr => arr.sort((a, b) => a.date < b.date ? 1 : -1));
+    return g;
+  }, [data]);
+  return /*#__PURE__*/React.createElement(React.Fragment, null, [5, 4, 3, 2, 1].map(level => /*#__PURE__*/React.createElement(Card, {
+    key: level,
+    className: "p-5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-base leading-none"
+  }, "❤️".repeat(level) + "🤍".repeat(5 - level)), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-stone-400"
+  }, groups[level].length, "\uC77C")), groups[level].length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-300 italic"
+  }, "\uAE30\uB85D \uC5C6\uC74C") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2"
+  }, groups[level].map(({
+    date,
+    entry
+  }) => /*#__PURE__*/React.createElement("button", {
+    key: date,
+    onClick: () => goToDate(date),
+    className: "w-full text-left flex items-start gap-3 bg-stone-50 hover:bg-rose-50 border border-stone-200 rounded-xl px-4 py-3 transition"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-semibold text-stone-400 shrink-0 mt-0.5"
+  }, date, " (", weekdayOf(date), ")"), /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-stone-600 truncate"
+  }, entry.diary || entry.schedules[0] && entry.schedules[0].title || /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-300 italic"
+  }, "\uC791\uC131\uB41C \uB0B4\uC6A9 \uC5C6\uC74C")))))))));
+}
 function AddSubtagInline({
-  onAdd
+  onAdd,
+  placeholder = "새 세부태그",
+  color = "amber"
 }) {
   const [text, setText] = useState("");
   const submit = () => {
@@ -1215,8 +1470,10 @@ function AddSubtagInline({
     onAdd(t);
     setText("");
   };
-  return /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1.5 mt-2"
+  const ring = color === "violet" ? "focus:ring-violet-200" : "focus:ring-amber-200";
+  const btn = color === "violet" ? "bg-violet-500 hover:bg-violet-600" : "bg-amber-500 hover:bg-amber-600";
+  return /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex gap-1"
   }, /*#__PURE__*/React.createElement("input", {
     value: text,
     onChange: e => setText(e.target.value),
@@ -1226,13 +1483,13 @@ function AddSubtagInline({
         submit();
       }
     },
-    placeholder: "\uC0C8 \uC138\uBD80 \uD0DC\uADF8 \uC774\uB984 (\uC608: \uC608\uBC29/\uAC80\uC9C4)",
-    className: "text-xs px-2.5 py-1.5 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-200 bg-stone-50 flex-1 max-w-xs"
+    placeholder: placeholder,
+    className: `w-24 px-2 py-0.5 rounded-full border border-dashed border-stone-300 text-[11px] focus:outline-none focus:ring-1 ${ring} bg-white`
   }), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: submit,
-    className: "text-xs px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600"
-  }, "+ \uC138\uBD80 \uD0DC\uADF8 \uCD94\uAC00"));
+    className: `text-[11px] px-2 py-0.5 rounded-full text-white ${btn}`
+  }, "+ \uCD94\uAC00"));
 }
 
 /* ---------------- 캘린더 Tab ---------------- */
@@ -1336,7 +1593,8 @@ function ListTab({
   data,
   goToDate,
   deleteEntry,
-  onEdit
+  onEdit,
+  openArchive
 }) {
   const allRows = useMemo(() => {
     return Object.keys(data.entries).sort((a, b) => a < b ? 1 : -1).map(date => ({
@@ -1378,7 +1636,7 @@ function ListTab({
     e.stopPropagation();
     onEdit(date);
   };
-  const columns = ["날짜", "기분", "일정", "인덱스", "세부태그", "담당", "한줄일기", "오늘의 생각", "GBT", "관리"];
+  const columns = ["날짜", "기분", "일정", "인덱스", "세부태그", "담당", "한줄일기", "GBT", "관리"];
   const joinGbt = entry => [...entry.good.map(x => "😊 " + x.text), ...entry.bad.map(x => "😔 " + x.text), ...entry.thanks.map(x => "✨ " + x.text)].join("\n");
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-5xl mx-auto fade-in"
@@ -1447,7 +1705,22 @@ function ListTab({
       className: "font-medium text-stone-700 whitespace-nowrap"
     }, date, " (", weekdayOf(date), ")")), /*#__PURE__*/React.createElement(DbCell, null, entry.mood > 0 ? "❤️".repeat(entry.mood) + "🤍".repeat(5 - entry.mood) : /*#__PURE__*/React.createElement("span", {
       className: "text-stone-300"
-    }, "-")), /*#__PURE__*/React.createElement(DbCell, null, entry.schedules.length > 0 ? entry.schedules.map(s => s.title || "(제목 없음)").join("\n") : /*#__PURE__*/React.createElement("span", {
+    }, "-")), /*#__PURE__*/React.createElement("td", {
+      className: "align-top px-3 py-3 border-b border-stone-100 text-xs text-stone-600 max-w-[220px]"
+    }, entry.schedules.length > 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-col gap-0.5 line-clamp-3"
+    }, entry.schedules.map(s => /*#__PURE__*/React.createElement("button", {
+      key: s.id,
+      type: "button",
+      onClick: e => {
+        e.stopPropagation();
+        openArchive(date, s.id);
+      },
+      className: "text-left hover:text-rose-600 hover:underline underline-offset-2 inline-flex items-center gap-1 w-fit"
+    }, s.title || "(제목 없음)", hasArchiveContent(s) && /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px]",
+      title: "\uC544\uCE74\uC774\uBE0C \uAE30\uB85D \uC788\uC74C"
+    }, "\uD83D\uDCC1")))) : /*#__PURE__*/React.createElement("span", {
       className: "text-stone-300"
     }, "-")), /*#__PURE__*/React.createElement(DbCell, null, dayTags.length > 0 ? /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap gap-1"
@@ -1472,8 +1745,6 @@ function ListTab({
       className: "text-stone-300"
     }, "-")), /*#__PURE__*/React.createElement(DbCell, null, entry.diary || /*#__PURE__*/React.createElement("span", {
       className: "text-stone-300"
-    }, "-")), /*#__PURE__*/React.createElement(DbCell, null, entry.thoughts || /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300"
     }, "-")), /*#__PURE__*/React.createElement(DbCell, null, gbt || /*#__PURE__*/React.createElement("span", {
       className: "text-stone-300"
     }, "-")), /*#__PURE__*/React.createElement("td", {
@@ -1493,7 +1764,8 @@ function ListTab({
 /* ---------------- 그때오늘 Tab ---------------- */
 function TodayInHistoryTab({
   data,
-  goToDate
+  goToDate,
+  openArchive
 }) {
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const yearsData = useMemo(() => {
@@ -1579,7 +1851,17 @@ function TodayInHistoryTab({
     className: "flex items-center gap-1.5 text-xs text-stone-600"
   }, /*#__PURE__*/React.createElement("span", {
     className: "text-stone-300"
-  }, "\uD83D\uDCCC"), s.title)))), diary && diary.trim() && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCCC"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: e => {
+      e.stopPropagation();
+      openArchive(date, s.id);
+    },
+    className: "text-left hover:text-rose-600 hover:underline underline-offset-2 inline-flex items-center gap-1"
+  }, s.title, hasArchiveContent(s) && /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px]",
+    title: "\uC544\uCE74\uC774\uBE0C \uAE30\uB85D \uC788\uC74C"
+  }, "\uD83D\uDCC1")))))), diary && diary.trim() && /*#__PURE__*/React.createElement("div", {
     className: "mb-1.5"
   }, /*#__PURE__*/React.createElement("p", {
     className: "text-[10px] font-semibold text-stone-400 mb-1"
@@ -1608,11 +1890,15 @@ function TodayInHistoryTab({
 }
 
 /* ---------------- Day Popup (shared "view a day" card used by Calendar / List / Index / 그때오늘) ---------------- */
+function hasArchiveContent(item) {
+  return !!(item.archiveData && Object.values(item.archiveData).some(v => v && v.trim()));
+}
 function DayPopup({
   date,
   data,
   onClose,
-  onEdit
+  onEdit,
+  openArchive
 }) {
   if (!date) return null;
   const entry = data.entries[date];
@@ -1653,9 +1939,14 @@ function DayPopup({
       className: "border border-stone-200 rounded-lg p-2.5 bg-stone-50/60 flex items-start justify-between gap-3"
     }, /*#__PURE__*/React.createElement("div", {
       className: "min-w-0"
-    }, /*#__PURE__*/React.createElement("p", {
-      className: "font-medium text-sm text-stone-700 break-words"
-    }, item.title || "(제목 없음)"), item.memo && /*#__PURE__*/React.createElement("p", {
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: () => openArchive(date, item.id),
+      className: "font-medium text-sm text-stone-700 break-words text-left hover:text-rose-600 hover:underline underline-offset-2 inline-flex items-center gap-1"
+    }, item.title || "(제목 없음)", hasArchiveContent(item) && /*#__PURE__*/React.createElement("span", {
+      className: "text-[10px]",
+      title: "\uC544\uCE74\uC774\uBE0C \uAE30\uB85D \uC788\uC74C"
+    }, "\uD83D\uDCC1")), item.memo && /*#__PURE__*/React.createElement("p", {
       className: "text-[11px] text-stone-400 mt-0.5 break-words"
     }, item.memo)), hasBadges && /*#__PURE__*/React.createElement("div", {
       className: "flex flex-wrap justify-end gap-1 shrink-0 max-w-[45%]"
@@ -1707,12 +1998,137 @@ function DayPopup({
   }, "\u270E ", entry ? "이 날짜 수정하기" : "이 날짜 기록 작성하기"))));
 }
 
+/* ---------------- Schedule Archive Modal ---------------- */
+// Each index is its own little archive: a schedule tagged with an index
+// inherits that index's custom field form (약국/병원, 장소, 증상명...) and
+// this modal is where those fields get filled in for this one occurrence.
+function ScheduleArchiveModal({
+  target,
+  data,
+  onClose,
+  onSave
+}) {
+  const date = target && target.date;
+  const scheduleId = target && target.scheduleId;
+  const entry = date ? data.entries[date] : null;
+  const item = entry ? entry.schedules.find(s => s.id === scheduleId) : null;
+  const [draft, setDraft] = useState({});
+  useEffect(() => {
+    setDraft(item && item.archiveData || {});
+  }, [date, scheduleId]);
+  if (!target || !item) return null;
+  const indexObjs = (item.tags || []).map(t => data.indices.find(i => i.name === t)).filter(Boolean);
+  const fields = [...new Set(indexObjs.flatMap(i => i.fields || []))];
+  const tags = item.tags || [];
+  const subtags = item.subtags || [];
+  const people = item.people || [];
+  const patch = (field, value) => setDraft(d => ({
+    ...d,
+    [field]: value
+  }));
+  const handleSave = () => {
+    onSave(date, scheduleId, draft);
+    onClose();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "fixed inset-0 z-[60] flex items-start sm:items-center justify-center p-4 bg-stone-900/40 backdrop-blur-sm overflow-y-auto",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "bg-white rounded-2xl shadow-xl max-w-lg w-full my-8 fade-in",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "p-4 border-b border-stone-100"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-between gap-2"
+  }, /*#__PURE__*/React.createElement("h2", {
+    className: "font-serif-kr text-base font-bold text-stone-800 break-words"
+  }, item.title || "(제목 없음)"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "w-7 h-7 shrink-0 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-400 text-lg"
+  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2 mt-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs text-stone-400"
+  }, date, " (", weekdayOf(date), ")")), (tags.length > 0 || subtags.length > 0 || people.length > 0) && /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap gap-1 mt-2"
+  }, tags.map(t => /*#__PURE__*/React.createElement("span", {
+    key: `t-${t}`,
+    className: "bg-rose-50 text-rose-600 text-[10px] px-1.5 py-0.5 rounded-full"
+  }, "#", t)), subtags.map((st, i) => /*#__PURE__*/React.createElement("span", {
+    key: `s-${i}`,
+    className: "bg-amber-50 text-amber-600 text-[10px] px-1.5 py-0.5 rounded-full"
+  }, st.index, "\xB7", st.tag)), people.map(p => /*#__PURE__*/React.createElement("span", {
+    key: `p-${p}`,
+    className: "bg-sky-50 text-sky-600 text-[10px] px-1.5 py-0.5 rounded-full"
+  }, "@", p)))), /*#__PURE__*/React.createElement("div", {
+    className: "p-4 space-y-3 max-h-[60vh] overflow-y-auto"
+  }, fields.length === 0 ? /*#__PURE__*/React.createElement("p", {
+    className: "text-sm text-stone-400 text-center py-6"
+  }, "\uC774 \uC77C\uC815\uC5D0 \uC5F0\uACB0\uB41C \uC778\uB371\uC2A4\uC5D0 \uC544\uC9C1 \uC544\uCE74\uC774\uBE0C \uD544\uB4DC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.", /*#__PURE__*/React.createElement("br", null), "\uC124\uC815 \u203A \uC778\uB371\uC2A4 \uAD00\uB9AC\uC5D0\uC11C \uD544\uB4DC\uB97C \uCD94\uAC00\uD574\uBCF4\uC138\uC694.") : fields.map(field => /*#__PURE__*/React.createElement("div", {
+    key: field
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-stone-400 mb-1"
+  }, field), /*#__PURE__*/React.createElement("textarea", {
+    value: draft[field] || "",
+    onChange: e => patch(field, e.target.value),
+    rows: 2,
+    className: "w-full text-sm px-3 py-2 rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-violet-200 resize-none"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "p-4 border-t border-stone-100 flex justify-end gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "text-xs px-3 py-1.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-500"
+  }, "\uB2EB\uAE30"), fields.length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: handleSave,
+    className: "text-xs px-3 py-1.5 rounded-full bg-violet-600 text-white hover:bg-violet-700"
+  }, "\uC800\uC7A5"))));
+}
+
 /* ---------------- 설정 Tab ---------------- */
+function AddChipInline({
+  onAdd,
+  placeholder,
+  buttonClass
+}) {
+  const [text, setText] = useState("");
+  const submit = () => {
+    const t = text.trim();
+    if (!t) return;
+    onAdd(t);
+    setText("");
+  };
+  return /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex gap-1"
+  }, /*#__PURE__*/React.createElement("input", {
+    value: text,
+    onChange: e => setText(e.target.value),
+    onKeyDown: e => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        submit();
+      }
+    },
+    placeholder: placeholder,
+    className: "w-28 px-2.5 py-1 rounded-full border border-dashed border-stone-300 text-xs focus:outline-none focus:ring-1 focus:ring-stone-300 bg-white"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: submit,
+    className: `text-xs px-2.5 py-1 rounded-full text-white ${buttonClass}`
+  }, "+ \uCD94\uAC00"));
+}
 function SettingsTab({
   data,
   setData,
+  addIndex,
   renameIndex,
   deleteIndex,
+  addSubtag,
+  renameSubtag,
+  deleteSubtag,
+  addField,
+  renameField,
+  deleteField,
+  addPerson,
   renamePerson,
   deletePerson
 }) {
@@ -1764,56 +2180,115 @@ function SettingsTab({
     flash("모든 데이터를 초기화했습니다.");
   };
   const entryCount = Object.keys(data.entries).length;
+  const [selectedIndexName, setSelectedIndexName] = useState(null);
+  const selectedIndexObj = data.indices.find(i => i.name === selectedIndexName) || null;
+  const handleRenameIndex = name => {
+    const newName = renameIndex(name);
+    if (newName && selectedIndexName === name) setSelectedIndexName(newName);
+  };
+  const handleDeleteIndex = name => {
+    if (deleteIndex(name) && selectedIndexName === name) setSelectedIndexName(null);
+  };
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-5xl mx-auto space-y-3 fade-in"
   }, /*#__PURE__*/React.createElement(Card, {
     className: "p-4"
   }, /*#__PURE__*/React.createElement(SectionTitle, {
-    sub: "\uBAA8\uB4E0 \uB370\uC774\uD130\uB294 \uC774 \uBE0C\uB77C\uC6B0\uC800\uC758 LocalStorage\uC5D0\uB9CC \uC800\uC7A5\uB429\uB2C8\uB2E4."
-  }, "\uB370\uC774\uD130 \uD604\uD669"), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-5 text-sm text-stone-500"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-xl font-serif-kr font-semibold text-stone-700"
-  }, entryCount), " \uAE30\uB85D\uB41C \uB0A0\uC9DC"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-xl font-serif-kr font-semibold text-stone-700"
-  }, data.indices.length), " \uC778\uB371\uC2A4"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
-    className: "text-xl font-serif-kr font-semibold text-stone-700"
-  }, data.people.length), " \uB300\uC0C1"))), /*#__PURE__*/React.createElement(Card, {
-    className: "p-4"
-  }, /*#__PURE__*/React.createElement(SectionTitle, {
-    sub: "\uC774\uB984\uC744 \uBC14\uAFB8\uAC70\uB098 \uC0AD\uC81C\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4"
+    sub: "\uD45C\uC5D0\uC11C \uC778\uB371\uC2A4\uB97C \uC120\uD0DD\uD558\uBA74 \uC544\uB798\uC5D0\uC11C \uC138\uBD80 \uD0DC\uADF8\uC640 \uC544\uCE74\uC774\uBE0C \uD56D\uBAA9\uC744 \uAD00\uB9AC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4."
   }, "\uC778\uB371\uC2A4 \uAD00\uB9AC"), data.indices.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-stone-300 italic"
+    className: "text-xs text-stone-300 italic mb-2"
   }, "\uC544\uC9C1 \uC0DD\uC131\uB41C \uC778\uB371\uC2A4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.") : /*#__PURE__*/React.createElement("div", {
-    className: "divide-y divide-stone-100"
-  }, data.indices.map(idx => /*#__PURE__*/React.createElement("div", {
+    className: "overflow-x-auto border border-stone-200 rounded-xl mb-3"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "w-full border-collapse"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    className: "bg-stone-50"
+  }, /*#__PURE__*/React.createElement("th", {
+    className: "text-left text-xs font-semibold text-stone-500 px-3 py-2 border-b border-stone-200"
+  }, "\uC778\uB371\uC2A4"), /*#__PURE__*/React.createElement("th", {
+    className: "text-center text-xs font-semibold text-stone-500 px-3 py-2 border-b border-stone-200 whitespace-nowrap"
+  }, "\uC138\uBD80\uD0DC\uADF8"), /*#__PURE__*/React.createElement("th", {
+    className: "text-center text-xs font-semibold text-stone-500 px-3 py-2 border-b border-stone-200 whitespace-nowrap"
+  }, "\uC544\uCE74\uC774\uBE0C \uD56D\uBAA9"), /*#__PURE__*/React.createElement("th", {
+    className: "text-right text-xs font-semibold text-stone-500 px-3 py-2 border-b border-stone-200"
+  }, "\uAD00\uB9AC"))), /*#__PURE__*/React.createElement("tbody", null, data.indices.map(idx => /*#__PURE__*/React.createElement("tr", {
     key: idx.name,
-    className: "py-2"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center justify-between gap-2"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-sm text-rose-600 font-medium"
-  }, "#", idx.name), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-2 shrink-0"
+    onClick: () => setSelectedIndexName(idx.name === selectedIndexName ? null : idx.name),
+    className: `cursor-pointer transition ${selectedIndexName === idx.name ? "bg-rose-50" : "hover:bg-stone-50"}`
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 border-b border-stone-100 text-sm text-rose-600 font-medium whitespace-nowrap"
+  }, "#", idx.name), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 border-b border-stone-100 text-xs text-stone-400 text-center"
+  }, idx.subtags.length), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 border-b border-stone-100 text-xs text-stone-400 text-center"
+  }, (idx.fields || []).length), /*#__PURE__*/React.createElement("td", {
+    className: "px-3 py-2 border-b border-stone-100 text-xs whitespace-nowrap text-right"
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: () => renameIndex(idx.name),
-    className: "text-xs text-stone-400 hover:text-stone-700"
+    onClick: e => {
+      e.stopPropagation();
+      handleRenameIndex(idx.name);
+    },
+    className: "text-stone-300 hover:text-stone-600 mr-2"
   }, "\u270E"), /*#__PURE__*/React.createElement("button", {
-    onClick: () => deleteIndex(idx.name),
-    className: "text-xs text-stone-400 hover:text-rose-500"
-  }, "\uD83D\uDDD1"))), idx.subtags.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-1 mt-1"
-  }, idx.subtags.map(tag => /*#__PURE__*/React.createElement("span", {
+    onClick: e => {
+      e.stopPropagation();
+      handleDeleteIndex(idx.name);
+    },
+    className: "text-stone-300 hover:text-rose-500"
+  }, "\uD83D\uDDD1"))))))), /*#__PURE__*/React.createElement(AddChipInline, {
+    onAdd: addIndex,
+    placeholder: "\uC0C8 \uC778\uB371\uC2A4 \uC774\uB984",
+    buttonClass: "bg-rose-500 hover:bg-rose-600"
+  }), selectedIndexObj && /*#__PURE__*/React.createElement("div", {
+    className: "mt-4 pt-4 border-t border-stone-100 space-y-3 fade-in"
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "text-xs font-semibold text-stone-500"
+  }, "#", selectedIndexObj.name, " \uC0C1\uC138 \uAD00\uB9AC"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-stone-400 mb-1.5"
+  }, "\uC138\uBD80 \uD0DC\uADF8"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-1.5"
+  }, selectedIndexObj.subtags.length === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-stone-300 italic mr-1"
+  }, "\uC544\uC9C1 \uC5C6\uC74C"), selectedIndexObj.subtags.map(tag => /*#__PURE__*/React.createElement("span", {
     key: tag,
-    className: "text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full"
-  }, tag))))))), /*#__PURE__*/React.createElement(Card, {
+    className: "group inline-flex items-center gap-1 text-[11px] bg-amber-50 text-amber-600 px-2 py-1 rounded-full"
+  }, tag, /*#__PURE__*/React.createElement("button", {
+    onClick: () => renameSubtag(selectedIndexObj.name, tag),
+    className: "opacity-60 hover:opacity-100"
+  }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteSubtag(selectedIndexObj.name, tag),
+    className: "opacity-60 hover:opacity-100"
+  }, "\uD83D\uDDD1"))), /*#__PURE__*/React.createElement(AddSubtagInline, {
+    onAdd: t => addSubtag(selectedIndexObj.name, t)
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+    className: "text-[11px] text-stone-400 mb-1.5"
+  }, "\uD83D\uDCC1 \uC544\uCE74\uC774\uBE0C \uD56D\uBAA9 ", /*#__PURE__*/React.createElement("span", {
+    className: "text-stone-300"
+  }, "(\uC77C\uC815 \uD074\uB9AD \uC2DC \uB098\uC624\uB294 \uC785\uB825 \uC591\uC2DD)")), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-1.5"
+  }, (selectedIndexObj.fields || []).length === 0 && /*#__PURE__*/React.createElement("span", {
+    className: "text-[11px] text-stone-300 italic mr-1"
+  }, "\uC544\uC9C1 \uC5C6\uC74C"), (selectedIndexObj.fields || []).map(field => /*#__PURE__*/React.createElement("span", {
+    key: field,
+    className: "group inline-flex items-center gap-1 text-[11px] bg-violet-50 text-violet-600 px-2 py-1 rounded-full"
+  }, field, /*#__PURE__*/React.createElement("button", {
+    onClick: () => renameField(selectedIndexObj.name, field),
+    className: "opacity-60 hover:opacity-100"
+  }, "\u270E"), /*#__PURE__*/React.createElement("button", {
+    onClick: () => deleteField(selectedIndexObj.name, field),
+    className: "opacity-60 hover:opacity-100"
+  }, "\uD83D\uDDD1"))), /*#__PURE__*/React.createElement(AddSubtagInline, {
+    onAdd: t => addField(selectedIndexObj.name, t),
+    placeholder: "\uC0C8 \uD56D\uBAA9 (\uC608: \uC7A5\uC18C)",
+    color: "violet"
+  }))))), /*#__PURE__*/React.createElement(Card, {
     className: "p-4"
   }, /*#__PURE__*/React.createElement(SectionTitle, {
-    sub: "\uC774\uB984\uC744 \uBC14\uAFB8\uAC70\uB098 \uC0AD\uC81C\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4"
-  }, "\uB300\uC0C1 \uAD00\uB9AC"), data.people.length === 0 ? /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-stone-300 italic"
-  }, "\uC544\uC9C1 \uB4F1\uB85D\uB41C \uB300\uC0C1\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.") : /*#__PURE__*/React.createElement("div", {
-    className: "divide-y divide-stone-100"
+    sub: "\uC0C8 \uB300\uC0C1\uC744 \uB9CC\uB4E4\uAC70\uB098 \uC774\uB984\uC744 \uBC14\uAFB8\uACE0 \uC0AD\uC81C\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4"
+  }, "\uB300\uC0C1 \uAD00\uB9AC"), data.people.length === 0 && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-300 italic mb-2"
+  }, "\uC544\uC9C1 \uB4F1\uB85D\uB41C \uB300\uC0C1\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."), data.people.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "divide-y divide-stone-100 mb-2"
   }, data.people.map(p => /*#__PURE__*/React.createElement("div", {
     key: p,
     className: "py-2 flex items-center justify-between gap-2"
@@ -1827,30 +2302,36 @@ function SettingsTab({
   }, "\u270E"), /*#__PURE__*/React.createElement("button", {
     onClick: () => deletePerson(p),
     className: "text-xs text-stone-400 hover:text-rose-500"
-  }, "\uD83D\uDDD1")))))), /*#__PURE__*/React.createElement(Card, {
+  }, "\uD83D\uDDD1"))))), /*#__PURE__*/React.createElement(AddChipInline, {
+    onAdd: addPerson,
+    placeholder: "\uC0C8 \uB300\uC0C1 \uC774\uB984",
+    buttonClass: "bg-sky-500 hover:bg-sky-600"
+  })), /*#__PURE__*/React.createElement(Card, {
     className: "p-4"
-  }, /*#__PURE__*/React.createElement(SectionTitle, null, "\uBC31\uC5C5 & \uBCF5\uC6D0"), /*#__PURE__*/React.createElement("div", {
-    className: "flex flex-wrap gap-2"
+  }, /*#__PURE__*/React.createElement(SectionTitle, null, "\uBC31\uC5C5 & \uB370\uC774\uD130 \uAD00\uB9AC"), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: exportData,
-    className: "text-sm px-4 py-2 rounded-lg bg-stone-700 text-white hover:bg-stone-800"
-  }, "\u2B07 JSON\uC73C\uB85C \uB0B4\uBCF4\uB0B4\uAE30"), /*#__PURE__*/React.createElement("button", {
+    className: "text-xs px-3 py-1.5 rounded-lg bg-stone-700 text-white hover:bg-stone-800"
+  }, "\u2B07 \uB0B4\uBCF4\uB0B4\uAE30"), /*#__PURE__*/React.createElement("button", {
     onClick: () => fileInputRef.current.click(),
-    className: "text-sm px-4 py-2 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200"
-  }, "\u2B06 JSON \uBD88\uB7EC\uC624\uAE30"), /*#__PURE__*/React.createElement("input", {
+    className: "text-xs px-3 py-1.5 rounded-lg bg-stone-100 text-stone-600 hover:bg-stone-200"
+  }, "\u2B06 \uBD88\uB7EC\uC624\uAE30"), /*#__PURE__*/React.createElement("input", {
     ref: fileInputRef,
     type: "file",
     accept: "application/json",
     className: "hidden",
     onChange: importData
-  })), msg && /*#__PURE__*/React.createElement("p", {
-    className: "text-xs text-emerald-600 mt-2"
-  }, msg)), /*#__PURE__*/React.createElement(Card, {
-    className: "p-4 border-rose-100"
-  }, /*#__PURE__*/React.createElement(SectionTitle, null, "\uC704\uD5D8 \uAD6C\uC5ED"), /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "w-px h-4 bg-stone-200 mx-1"
+  }), /*#__PURE__*/React.createElement("button", {
     onClick: clearAll,
-    className: "text-sm px-4 py-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200"
-  }, "\uC804\uCCB4 \uB370\uC774\uD130 \uCD08\uAE30\uD654")));
+    className: "text-xs px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"
+  }, "\uC804\uCCB4 \uCD08\uAE30\uD654")), msg && /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-emerald-600 mt-2"
+  }, msg)), /*#__PURE__*/React.createElement("p", {
+    className: "text-xs text-stone-400 text-center px-2"
+  }, "\uAE30\uB85D ", entryCount, "\uC77C \xB7 \uC778\uB371\uC2A4 ", data.indices.length, "\uAC1C \xB7 \uB300\uC0C1 ", data.people.length, "\uBA85 \u2014 \uC774 \uBE0C\uB77C\uC6B0\uC800\uC758 LocalStorage\uC5D0\uB9CC \uC800\uC7A5\uB429\uB2C8\uB2E4."));
 }
 
 /* ---------------- App ---------------- */
@@ -1859,6 +2340,7 @@ function App() {
   const [tab, setTab] = useState("today");
   const [date, setDate] = useState(todayStr());
   const [popupDate, setPopupDate] = useState(null);
+  const [archiveTarget, setArchiveTarget] = useState(null);
   useEffect(() => {
     saveData(data);
   }, [data]);
@@ -1890,7 +2372,8 @@ function App() {
       ...prev,
       indices: [...prev.indices, {
         name: t,
-        subtags: []
+        subtags: [],
+        fields: []
       }]
     });
   };
@@ -1912,7 +2395,8 @@ function App() {
         subtags: [...i.subtags, t]
       } : i) : [...prev.indices, {
         name: indexName,
-        subtags: [t]
+        subtags: [t],
+        fields: []
       }];
       return {
         ...prev,
@@ -2001,6 +2485,101 @@ function App() {
     }));
     return true;
   };
+
+  // Fields are the custom archive-record form for an index (e.g. 건강 →
+  // 약국/병원, 장소, 증상명...). Filled in per-schedule via the archive modal.
+  const addField = (indexName, fieldName) => {
+    const t = fieldName.trim();
+    if (!t) return;
+    setData(prev => {
+      const exists = prev.indices.some(i => i.name === indexName);
+      const indices = exists ? prev.indices.map(i => i.name === indexName && !(i.fields || []).includes(t) ? {
+        ...i,
+        fields: [...(i.fields || []), t]
+      } : i) : [...prev.indices, {
+        name: indexName,
+        subtags: [],
+        fields: [t]
+      }];
+      return {
+        ...prev,
+        indices
+      };
+    });
+  };
+  const renameField = (indexName, oldField) => {
+    const next = prompt("새 필드 이름을 입력하세요", oldField);
+    if (!next || !next.trim() || next.trim() === oldField) return;
+    const newField = next.trim();
+    setData(prev => ({
+      ...prev,
+      indices: prev.indices.map(i => i.name === indexName ? {
+        ...i,
+        fields: [...new Set((i.fields || []).map(f => f === oldField ? newField : f))]
+      } : i),
+      entries: Object.fromEntries(Object.entries(prev.entries).map(([d, entry]) => [d, {
+        ...entry,
+        schedules: entry.schedules.map(s => {
+          if (!s.archiveData || !(oldField in s.archiveData)) return s;
+          const rest = {
+            ...s.archiveData
+          };
+          const val = rest[oldField];
+          delete rest[oldField];
+          return {
+            ...s,
+            archiveData: {
+              ...rest,
+              [newField]: val
+            }
+          };
+        })
+      }]))
+    }));
+  };
+  const deleteField = (indexName, field) => {
+    if (!confirm(`필드 "${field}"를 삭제할까요? 이미 채워진 내용도 함께 삭제됩니다.`)) return;
+    setData(prev => ({
+      ...prev,
+      indices: prev.indices.map(i => i.name === indexName ? {
+        ...i,
+        fields: (i.fields || []).filter(f => f !== field)
+      } : i),
+      entries: Object.fromEntries(Object.entries(prev.entries).map(([d, entry]) => [d, {
+        ...entry,
+        schedules: entry.schedules.map(s => {
+          if (!s.archiveData || !(field in s.archiveData)) return s;
+          const rest = {
+            ...s.archiveData
+          };
+          delete rest[field];
+          return {
+            ...s,
+            archiveData: rest
+          };
+        })
+      }]))
+    }));
+  };
+  const updateScheduleArchive = (dateStr, scheduleId, archiveData) => {
+    setData(prev => {
+      const entry = prev.entries[dateStr];
+      if (!entry) return prev;
+      return {
+        ...prev,
+        entries: {
+          ...prev.entries,
+          [dateStr]: {
+            ...entry,
+            schedules: entry.schedules.map(s => s.id === scheduleId ? {
+              ...s,
+              archiveData
+            } : s)
+          }
+        }
+      };
+    });
+  };
   const renamePerson = oldName => {
     const next = prompt("새 이름을 입력하세요", oldName);
     if (!next || !next.trim() || next.trim() === oldName) return;
@@ -2039,6 +2618,15 @@ function App() {
     setPopupDate(null);
   };
   const editFromPopup = () => goEdit(popupDate);
+
+  // Each index is its own little archive: click a schedule's name (in the
+  // calendar day popup, the list, or anywhere else it's shown) to open its
+  // per-schedule archive record, built from the fields of its index tags.
+  const openArchive = (dateStr, scheduleId) => setArchiveTarget({
+    date: dateStr,
+    scheduleId
+  });
+  const closeArchive = () => setArchiveTarget(null);
   const tabs = [{
     key: "today",
     label: "오늘",
@@ -2097,31 +2685,47 @@ function App() {
   }), tab === "list" && /*#__PURE__*/React.createElement(ListTab, {
     data: data,
     goToDate: openPopup,
+    openArchive: openArchive,
     deleteEntry: deleteEntry,
     onEdit: goEdit
   }), tab === "index" && /*#__PURE__*/React.createElement(IndexArchiveTab, {
     data: data,
     goToDate: openPopup,
-    addSubtag: addSubtag,
+    openArchive: openArchive,
     renameIndex: renameIndex,
     deleteIndex: deleteIndex,
     renameSubtag: renameSubtag,
     deleteSubtag: deleteSubtag
   }), tab === "history" && /*#__PURE__*/React.createElement(TodayInHistoryTab, {
     data: data,
-    goToDate: openPopup
+    goToDate: openPopup,
+    openArchive: openArchive
   }), tab === "settings" && /*#__PURE__*/React.createElement(SettingsTab, {
     data: data,
     setData: setData,
+    addIndex: addIndex,
     renameIndex: renameIndex,
     deleteIndex: deleteIndex,
+    addSubtag: addSubtag,
+    renameSubtag: renameSubtag,
+    deleteSubtag: deleteSubtag,
+    addField: addField,
+    renameField: renameField,
+    deleteField: deleteField,
+    addPerson: addPerson,
     renamePerson: renamePerson,
     deletePerson: deletePerson
   })), /*#__PURE__*/React.createElement(DayPopup, {
     date: popupDate,
     data: data,
     onClose: closePopup,
-    onEdit: editFromPopup
+    onEdit: editFromPopup,
+    openArchive: openArchive
+  }), /*#__PURE__*/React.createElement(ScheduleArchiveModal, {
+    target: archiveTarget,
+    data: data,
+    onClose: closeArchive,
+    onSave: updateScheduleArchive
   }));
 }
 ReactDOM.createRoot(document.getElementById("root")).render( /*#__PURE__*/React.createElement(App, null));
