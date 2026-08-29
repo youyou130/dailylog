@@ -419,7 +419,7 @@ const {
   useRef
 } = React;
 
-/* ---------------- Storage helpers (local only — no sync) ---------------- */
+/* ---------------- Storage helpers (localStorage; cross-device sync via the "db" capability lives in App) ---------------- */
 const STORAGE_KEY = "personal_archive_data_v1";
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -2155,14 +2155,33 @@ function SettingsTab({
     setMsg(m);
     setTimeout(() => setMsg(""), 2500);
   };
-  const exportData = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
+  const exportData = async () => {
+    const filename = `archive-backup-${todayStr()}.json`;
+    const json = JSON.stringify(data, null, 2);
+    if (typeof window.claude !== "undefined" && typeof window.claude.use === "function") {
+      try {
+        const downloads = await window.claude.use("downloads");
+        if (downloads) {
+          try {
+            await downloads.save({
+              filename,
+              data: json
+            });
+            flash("백업 파일을 내보냈습니다.");
+          } catch (e) {
+            if (e && e.code !== "declined") alert("내보내기에 실패했습니다: " + (e.message || e.code));
+          }
+          return;
+        }
+      } catch (e) {/* fall through to the plain-browser method below */}
+    }
+    const blob = new Blob([json], {
       type: "application/json"
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `archive-backup-${todayStr()}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -2360,14 +2379,82 @@ function SettingsTab({
 
 /* ---------------- App ---------------- */
 function App() {
-  const [data, setData] = useState(loadData());
+  const [data, setData] = useState(null);
   const [tab, setTab] = useState("today");
   const [date, setDate] = useState(todayStr());
   const [popupDate, setPopupDate] = useState(null);
   const [archiveTarget, setArchiveTarget] = useState(null);
+  const dbRef = useRef(null);
+  const lastAppliedRef = useRef(null);
+
+  // Cross-device sync: if this page is running inside a Claude Artifact
+  // viewer with the "db" capability granted, every device that opens the
+  // same link reads and writes the same shared document. If not (opened as
+  // a plain static file, or the capability isn't available), it falls back
+  // to this browser's own localStorage exactly like before.
   useEffect(() => {
+    let unsub = null;
+    let cancelled = false;
+    (async () => {
+      if (typeof window.claude === "undefined" || typeof window.claude.use !== "function") {
+        if (!cancelled) setData(loadData());
+        return;
+      }
+      let db = null;
+      try {
+        db = await window.claude.use("db");
+      } catch (e) {
+        db = null;
+      }
+      if (cancelled) return;
+      if (!db) {
+        setData(loadData());
+        return;
+      }
+      dbRef.current = db;
+      const ref = db.doc("archive/main");
+      unsub = ref.onSnapshot(snap => {
+        if (cancelled) return;
+        if (snap.exists) {
+          const remote = normalizeData(snap.data());
+          const serialized = JSON.stringify(remote);
+          if (serialized !== lastAppliedRef.current) {
+            lastAppliedRef.current = serialized;
+            setData(remote);
+          }
+        } else {
+          // No shared document yet — seed it from whatever this browser
+          // already has locally (e.g. data from before sync was turned on).
+          const local = loadData();
+          lastAppliedRef.current = JSON.stringify(local);
+          setData(local);
+          ref.set(local).catch(() => {});
+        }
+      }, () => {
+        if (!cancelled) setData(prev => prev || loadData());
+      });
+    })();
+    return () => {
+      cancelled = true;
+      if (unsub) unsub();
+    };
+  }, []);
+  useEffect(() => {
+    if (data === null) return;
     saveData(data);
+    if (!dbRef.current) return;
+    const serialized = JSON.stringify(data);
+    if (serialized === lastAppliedRef.current) return;
+    lastAppliedRef.current = serialized;
+    dbRef.current.doc("archive/main").set(data).catch(() => {});
   }, [data]);
+  if (data === null) {
+    return /*#__PURE__*/React.createElement("div", {
+      className: "min-h-screen flex items-center justify-center"
+    }, /*#__PURE__*/React.createElement("p", {
+      className: "text-sm text-stone-400"
+    }, "\uBD88\uB7EC\uC624\uB294 \uC911\u2026"));
+  }
   const commitEntry = (dateStr, newEntry) => {
     setData(prev => ({
       ...prev,
