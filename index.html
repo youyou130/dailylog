@@ -419,7 +419,7 @@ const {
   useRef
 } = React;
 
-/* ---------------- Storage helpers (localStorage; cross-device sync via the "db" capability lives in App) ---------------- */
+/* ---------------- Storage helpers (local only — no sync) ---------------- */
 const STORAGE_KEY = "personal_archive_data_v1";
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -1290,54 +1290,35 @@ function ArchiveTab({
   }, "#", idx.name), /*#__PURE__*/React.createElement("span", {
     className: "text-xs text-stone-400"
   }, grouped[idx.name].length, "\uAC74")), /*#__PURE__*/React.createElement("div", {
-    className: "overflow-x-auto"
-  }, /*#__PURE__*/React.createElement("table", {
-    className: "w-full border-collapse"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
-    className: "w-[90px] text-left text-xs font-medium text-stone-400 px-3 py-2 border-b border-stone-200 whitespace-nowrap"
-  }, "\uB0A0\uC9DC"), /*#__PURE__*/React.createElement("th", {
-    className: "text-left text-xs font-medium text-stone-400 px-3 py-2 border-b border-stone-200"
-  }, "\uB0B4\uC6A9"), /*#__PURE__*/React.createElement("th", {
-    className: "w-[110px] text-left text-xs font-medium text-stone-400 px-3 py-2 border-b border-stone-200"
-  }, "@"), /*#__PURE__*/React.createElement("th", {
-    className: "w-[110px] text-left text-xs font-medium text-stone-400 px-3 py-2 border-b border-stone-200"
-  }, "*"))), /*#__PURE__*/React.createElement("tbody", {
     className: "divide-y divide-stone-100"
   }, grouped[idx.name].map(item => {
     const people = item.people || [];
     const subtags = item.subtags || [];
-    return /*#__PURE__*/React.createElement("tr", {
+    const hasTags = people.length > 0 || subtags.length > 0;
+    return /*#__PURE__*/React.createElement("div", {
       key: item.date + item.id,
       onClick: () => openArchive(item.date, item.id),
-      className: "hover:bg-rose-50/60 cursor-pointer transition"
-    }, /*#__PURE__*/React.createElement("td", {
-      className: "text-xs text-stone-400 whitespace-nowrap px-3 py-2 align-top"
-    }, item.date.slice(2), " (", weekdayOf(item.date), ")"), /*#__PURE__*/React.createElement("td", {
-      className: "text-xs text-stone-700 px-3 py-2 align-top"
+      className: "flex items-start gap-3 py-2.5 cursor-pointer hover:bg-rose-50/60 transition -mx-2 px-2 rounded-lg"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "w-20 shrink-0 space-y-1"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "text-[11px] text-stone-400 whitespace-nowrap"
+    }, item.date.slice(2), " (", weekdayOf(item.date), ")"), hasTags && /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1"
+    }, people.map(p => /*#__PURE__*/React.createElement("span", {
+      key: p,
+      className: "bg-sky-50 text-sky-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+    }, "@", p)), subtags.map((st, i) => /*#__PURE__*/React.createElement("span", {
+      key: i,
+      className: "bg-amber-50 text-amber-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+    }, st.index, "\xB7", st.tag)))), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 min-w-0 text-xs text-stone-700"
     }, /*#__PURE__*/React.createElement("span", {
       className: "inline-flex items-center gap-1"
     }, hasArchiveContent(item) && /*#__PURE__*/React.createElement("span", {
       className: "text-[10px]"
-    }, "\uD83D\uDCC1"), item.title || "(제목 없음)")), /*#__PURE__*/React.createElement("td", {
-      className: "px-3 py-2 align-top"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-1"
-    }, people.length === 0 && /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300 text-xs"
-    }, "-"), people.map(p => /*#__PURE__*/React.createElement("span", {
-      key: p,
-      className: "bg-sky-50 text-sky-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
-    }, "@", p)))), /*#__PURE__*/React.createElement("td", {
-      className: "px-3 py-2 align-top"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-1"
-    }, subtags.length === 0 && /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300 text-xs"
-    }, "-"), subtags.map((st, i) => /*#__PURE__*/React.createElement("span", {
-      key: i,
-      className: "bg-amber-50 text-amber-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
-    }, st.index, "\xB7", st.tag)))));
-  })))))));
+    }, "\uD83D\uDCC1"), item.title || "(제목 없음)")));
+  })))));
 }
 function AddSubtagInline({
   onAdd,
@@ -1496,24 +1477,6 @@ function CalendarTab({
 }
 
 /* ---------------- 리스트 Tab ---------------- */
-function DbCell({
-  children
-}) {
-  return /*#__PURE__*/React.createElement("td", {
-    className: "align-top px-1.5 py-3 text-xs text-stone-600 max-w-[90px] whitespace-nowrap"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "line-clamp-3"
-  }, children));
-}
-function DbCellWide({
-  children
-}) {
-  return /*#__PURE__*/React.createElement("td", {
-    className: "align-top px-3 py-3 text-xs text-stone-600 min-w-[200px]"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "whitespace-pre-line"
-  }, children));
-}
 function FilterPill({
   active,
   count,
@@ -1622,7 +1585,6 @@ function ListTab({
     e.stopPropagation();
     onEdit(date);
   };
-  const columns = ["날짜", "내용", "@", "#", "*", "한줄일기", "3T", "관리"];
   const joinGbt = entry => [...entry.good.map(x => "😊 " + x.text), ...entry.bad.map(x => "😔 " + x.text), ...entry.thanks.map(x => "✨ " + x.text)].join("\n");
   return /*#__PURE__*/React.createElement("div", {
     className: "max-w-5xl mx-auto fade-in"
@@ -1715,13 +1677,6 @@ function ListTab({
   }, "\uC544\uC9C1 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.") : rows.length === 0 ? /*#__PURE__*/React.createElement("p", {
     className: "text-xs text-stone-300 italic"
   }, "\uAC80\uC0C9 \uC870\uAC74\uC5D0 \uB9DE\uB294 \uAE30\uB85D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.") : /*#__PURE__*/React.createElement("div", {
-    className: "overflow-x-auto"
-  }, /*#__PURE__*/React.createElement("table", {
-    className: "w-full border-collapse min-w-[700px]"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, columns.map(c => /*#__PURE__*/React.createElement("th", {
-    key: c,
-    className: "text-left text-xs font-medium text-stone-400 px-3 py-2 border-b border-stone-200 whitespace-nowrap"
-  }, c)))), /*#__PURE__*/React.createElement("tbody", {
     className: "divide-y divide-stone-100"
   }, rows.map(({
     date,
@@ -1731,22 +1686,37 @@ function ListTab({
     const daySubtags = [...new Set(entry.schedules.flatMap(s => (s.subtags || []).map(st => `${st.index}·${st.tag}`)))];
     const dayPeople = [...new Set(entry.schedules.flatMap(s => s.people || []))];
     const gbt = joinGbt(entry);
-    return /*#__PURE__*/React.createElement("tr", {
+    const hasTags = dayPeople.length > 0 || dayTags.length > 0 || daySubtags.length > 0;
+    const hasContent = entry.schedules.length > 0 || entry.diary && entry.diary.trim() || gbt;
+    return /*#__PURE__*/React.createElement("div", {
       key: date,
       onClick: () => goToDate(date),
-      className: "hover:bg-rose-50/60 cursor-pointer transition"
-    }, /*#__PURE__*/React.createElement("td", {
-      className: "align-top px-2 py-3 text-stone-600 whitespace-nowrap"
+      className: "flex items-start gap-3 py-3 cursor-pointer hover:bg-rose-50/60 transition -mx-2 px-2 rounded-lg"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "text-stone-500 text-[11px]"
+      className: "w-24 shrink-0 space-y-1.5"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "text-[11px] text-stone-500 whitespace-nowrap"
     }, date.slice(2), " (", weekdayOf(date), ")"), /*#__PURE__*/React.createElement("div", {
       className: "text-[10px] leading-none mt-1"
     }, entry.mood > 0 ? "❤️".repeat(entry.mood) + "🤍".repeat(5 - entry.mood) : /*#__PURE__*/React.createElement("span", {
       className: "text-stone-300"
-    }, "-"))), /*#__PURE__*/React.createElement("td", {
-      className: "align-top px-3 py-3 text-xs text-stone-600 min-w-[140px] max-w-[170px]"
-    }, entry.schedules.length > 0 ? /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-col gap-0.5 line-clamp-3"
+    }, "-"))), hasTags && /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-wrap gap-1"
+    }, dayPeople.map(p => /*#__PURE__*/React.createElement("span", {
+      key: p,
+      className: "bg-sky-50 text-sky-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+    }, "@", p)), dayTags.map(t => /*#__PURE__*/React.createElement("span", {
+      key: t,
+      className: "bg-rose-50 text-rose-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+    }, "#", t)), daySubtags.map(t => /*#__PURE__*/React.createElement("span", {
+      key: t,
+      className: "bg-amber-50 text-amber-600 text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
+    }, t)))), /*#__PURE__*/React.createElement("div", {
+      className: "flex-1 min-w-0 space-y-1.5"
+    }, !hasContent && /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-stone-300 italic"
+    }, "\uB0B4\uC6A9 \uC5C6\uC74C"), entry.schedules.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "flex flex-col gap-0.5"
     }, entry.schedules.map(s => /*#__PURE__*/React.createElement("button", {
       key: s.id,
       type: "button",
@@ -1754,51 +1724,32 @@ function ListTab({
         e.stopPropagation();
         openArchive(date, s.id);
       },
-      className: "text-left hover:text-rose-600 hover:underline underline-offset-2 inline-flex items-center gap-1 w-fit"
+      className: "text-left text-xs hover:text-rose-600 hover:underline underline-offset-2 inline-flex items-center gap-1 w-fit"
     }, /*#__PURE__*/React.createElement("span", {
       className: "text-stone-300"
     }, "\u2022"), s.title || "(제목 없음)", hasArchiveContent(s) && /*#__PURE__*/React.createElement("span", {
       className: "text-[10px]",
       title: "\uC544\uCE74\uC774\uBE0C \uAE30\uB85D \uC788\uC74C"
-    }, "\uD83D\uDCC1")))) : /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300"
-    }, "-")), /*#__PURE__*/React.createElement(DbCell, null, dayPeople.length > 0 ? /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-1"
-    }, dayPeople.map(p => /*#__PURE__*/React.createElement("span", {
-      key: p,
-      className: "bg-sky-50 text-sky-600 px-1.5 py-0.5 rounded-full whitespace-nowrap"
-    }, "@", p))) : /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300"
-    }, "-")), /*#__PURE__*/React.createElement(DbCell, null, dayTags.length > 0 ? /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-1"
-    }, dayTags.map(t => /*#__PURE__*/React.createElement("span", {
-      key: t,
-      className: "bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-full whitespace-nowrap"
-    }, "#", t))) : /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300"
-    }, "-")), /*#__PURE__*/React.createElement(DbCell, null, daySubtags.length > 0 ? /*#__PURE__*/React.createElement("div", {
-      className: "flex flex-wrap gap-1"
-    }, daySubtags.map(t => /*#__PURE__*/React.createElement("span", {
-      key: t,
-      className: "bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-full whitespace-nowrap"
-    }, t))) : /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300"
-    }, "-")), /*#__PURE__*/React.createElement(DbCellWide, null, entry.diary || /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300"
-    }, "-")), /*#__PURE__*/React.createElement(DbCellWide, null, gbt || /*#__PURE__*/React.createElement("span", {
-      className: "text-stone-300"
-    }, "-")), /*#__PURE__*/React.createElement("td", {
-      className: "align-top px-1.5 py-3 text-xs whitespace-nowrap"
+    }, "\uD83D\uDCC1")))), entry.diary && entry.diary.trim() && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "text-[10px] font-semibold text-stone-400"
+    }, "\uD55C\uC904\uC77C\uAE30"), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-stone-600"
+    }, entry.diary)), gbt && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("p", {
+      className: "text-[10px] font-semibold text-stone-400"
+    }, "3T"), /*#__PURE__*/React.createElement("p", {
+      className: "text-xs text-stone-600 whitespace-pre-line"
+    }, gbt))), /*#__PURE__*/React.createElement("div", {
+      className: "shrink-0 flex flex-col items-end gap-1.5"
     }, /*#__PURE__*/React.createElement("button", {
       onClick: e => handleEdit(e, date),
       title: "\uC774 \uB0A0\uC9DC \uC218\uC815\uD558\uAE30",
-      className: "text-stone-300 hover:text-stone-600 transition mr-1.5"
+      className: "text-stone-300 hover:text-stone-600 transition text-xs"
     }, "\u270E"), /*#__PURE__*/React.createElement("button", {
       onClick: e => handleDelete(e, date),
       title: "\uC774 \uB0A0\uC9DC \uAE30\uB85D \uC0AD\uC81C",
-      className: "text-stone-300 hover:text-rose-500 transition"
+      className: "text-stone-300 hover:text-rose-500 transition text-xs"
     }, "\u2715")));
-  }))))));
+  }))));
 }
 
 /* ---------------- 그때오늘 Tab ---------------- */
@@ -2379,82 +2330,14 @@ function SettingsTab({
 
 /* ---------------- App ---------------- */
 function App() {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(loadData());
   const [tab, setTab] = useState("today");
   const [date, setDate] = useState(todayStr());
   const [popupDate, setPopupDate] = useState(null);
   const [archiveTarget, setArchiveTarget] = useState(null);
-  const dbRef = useRef(null);
-  const lastAppliedRef = useRef(null);
-
-  // Cross-device sync: if this page is running inside a Claude Artifact
-  // viewer with the "db" capability granted, every device that opens the
-  // same link reads and writes the same shared document. If not (opened as
-  // a plain static file, or the capability isn't available), it falls back
-  // to this browser's own localStorage exactly like before.
   useEffect(() => {
-    let unsub = null;
-    let cancelled = false;
-    (async () => {
-      if (typeof window.claude === "undefined" || typeof window.claude.use !== "function") {
-        if (!cancelled) setData(loadData());
-        return;
-      }
-      let db = null;
-      try {
-        db = await window.claude.use("db");
-      } catch (e) {
-        db = null;
-      }
-      if (cancelled) return;
-      if (!db) {
-        setData(loadData());
-        return;
-      }
-      dbRef.current = db;
-      const ref = db.doc("archive/main");
-      unsub = ref.onSnapshot(snap => {
-        if (cancelled) return;
-        if (snap.exists) {
-          const remote = normalizeData(snap.data());
-          const serialized = JSON.stringify(remote);
-          if (serialized !== lastAppliedRef.current) {
-            lastAppliedRef.current = serialized;
-            setData(remote);
-          }
-        } else {
-          // No shared document yet — seed it from whatever this browser
-          // already has locally (e.g. data from before sync was turned on).
-          const local = loadData();
-          lastAppliedRef.current = JSON.stringify(local);
-          setData(local);
-          ref.set(local).catch(() => {});
-        }
-      }, () => {
-        if (!cancelled) setData(prev => prev || loadData());
-      });
-    })();
-    return () => {
-      cancelled = true;
-      if (unsub) unsub();
-    };
-  }, []);
-  useEffect(() => {
-    if (data === null) return;
     saveData(data);
-    if (!dbRef.current) return;
-    const serialized = JSON.stringify(data);
-    if (serialized === lastAppliedRef.current) return;
-    lastAppliedRef.current = serialized;
-    dbRef.current.doc("archive/main").set(data).catch(() => {});
   }, [data]);
-  if (data === null) {
-    return /*#__PURE__*/React.createElement("div", {
-      className: "min-h-screen flex items-center justify-center"
-    }, /*#__PURE__*/React.createElement("p", {
-      className: "text-sm text-stone-400"
-    }, "\uBD88\uB7EC\uC624\uB294 \uC911\u2026"));
-  }
   const commitEntry = (dateStr, newEntry) => {
     setData(prev => ({
       ...prev,
